@@ -1,0 +1,50 @@
+---
+- hosts: all
+  become: yes
+  tasks:
+
+  - name: Distribute Dockerfile file
+    ansible.builtin.copy:
+      src: "files/Dockerfile"
+      dest: "/tmp/Dockerfile"
+
+  - name: Distribute docker-compose.yml file
+    ansible.builtin.copy:
+      src: "files/docker-compose.yml"
+      dest: "/tmp/docker-compose.yml"
+
+  - name: mkdir /tmp/app
+    ansible.builtin.file:
+      path: /tmp/app
+      state: "{{item}}"
+    with_items:
+      - "absent"
+      - "directory"
+
+  - name: Distribute app directory
+    ansible.builtin.copy:
+      src: "../app/"
+      dest: "/tmp/app/"
+
+  - name: Distribute nginx.conf.j2 file
+    ansible.builtin.template:
+      src: "files/nginx.conf.j2"
+      dest: "/tmp/nginx.conf"
+    notify:
+      - Restart nginx
+
+  - name: Install Docker and Docker Compose
+    include_role:
+      name: docker
+
+  - name: Start application with docker-compose
+    ansible.builtin.command: docker compose up -d --force-recreate
+    args:
+      chdir: /tmp/
+
+  handlers:
+    - name: Restart nginx
+      ansible.builtin.docker_container:
+        name: nginx
+        state: started
+        restart: true
